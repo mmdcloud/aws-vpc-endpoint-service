@@ -47,7 +47,7 @@ resource "aws_vpc" "service_vpc" {
   enable_dns_support   = true
 
   tags = {
-    Name = "${locals.name_prefix}-vpc"
+    Name = "${local.name_prefix}-vpc"
   }
 }
 
@@ -58,20 +58,20 @@ resource "aws_default_security_group" "default" {
   vpc_id = aws_vpc.service_vpc[0].id
 
   tags = {
-    Name = "${locals.name_prefix}-default-sg-locked"
+    Name = "${local.name_prefix}-default-sg-locked"
   }
 }
 
 resource "aws_subnet" "private" {
-  count = var.create_vpc ? length(locals.azs) : 0
+  count = var.create_vpc ? length(local.azs) : 0
 
   vpc_id                  = aws_vpc.service_vpc[0].id
   cidr_block              = cidrsubnet(var.vpc_cidr, 4, count.index)
-  availability_zone       = locals.azs[count.index]
+  availability_zone       = local.azs[count.index]
   map_public_ip_on_launch = false
 
   tags = {
-    Name = "${locals.name_prefix}-private-subnet-${locals.azs[count.index]}"
+    Name = "${local.name_prefix}-private-subnet-${local.azs[count.index]}"
     Type = "Private"
   }
 }
@@ -82,12 +82,12 @@ resource "aws_route_table" "private" {
   vpc_id = aws_vpc.service_vpc[0].id
 
   tags = {
-    Name = "${locals.name_prefix}-private-rt"
+    Name = "${local.name_prefix}-private-rt"
   }
 }
 
 resource "aws_route_table_association" "private" {
-  count = var.create_vpc ? length(locals.azs) : 0
+  count = var.create_vpc ? length(local.azs) : 0
 
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[0].id
@@ -99,12 +99,12 @@ resource "aws_route_table_association" "private" {
 
 # Security Group attached to the Network Load Balancer
 resource "aws_security_group" "nlb_sg" {
-  name_prefix = "${locals.name_prefix}-nlb-sg-"
+  name_prefix = "${local.name_prefix}-nlb-sg-"
   description = "Security group for PrivateLink Network Load Balancer"
-  vpc_id      = locals.vpc_id
+  vpc_id      = local.vpc_id
 
   tags = {
-    Name = "${locals.name_prefix}-nlb-sg"
+    Name = "${local.name_prefix}-nlb-sg"
   }
 
   lifecycle {
@@ -134,12 +134,12 @@ resource "aws_vpc_security_group_egress_rule" "nlb_egress_backend" {
 
 # Security Group attached to backend target instances
 resource "aws_security_group" "backend_sg" {
-  name_prefix = "${locals.name_prefix}-backend-sg-"
+  name_prefix = "${local.name_prefix}-backend-sg-"
   description = "Security group for backend target instances receiving PrivateLink traffic"
-  vpc_id      = locals.vpc_id
+  vpc_id      = local.vpc_id
 
   tags = {
-    Name = "${locals.name_prefix}-backend-sg"
+    Name = "${local.name_prefix}-backend-sg"
   }
 
   lifecycle {
@@ -204,7 +204,7 @@ data "aws_ami" "amazon_linux_2023" {
 resource "aws_iam_role" "backend_role" {
   count = var.enable_sample_backend ? 1 : 0
 
-  name_prefix = "${locals.name_prefix}-backend-role-"
+  name_prefix = "${local.name_prefix}-backend-role-"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -220,7 +220,7 @@ resource "aws_iam_role" "backend_role" {
   })
 
   tags = {
-    Name = "${locals.name_prefix}-backend-role"
+    Name = "${local.name_prefix}-backend-role"
   }
 }
 
@@ -234,11 +234,11 @@ resource "aws_iam_role_policy_attachment" "ssm_core" {
 resource "aws_iam_instance_profile" "backend_profile" {
   count = var.enable_sample_backend ? 1 : 0
 
-  name_prefix = "${locals.name_prefix}-backend-profile-"
+  name_prefix = "${local.name_prefix}-backend-profile-"
   role        = aws_iam_role.backend_role[0].name
 
   tags = {
-    Name = "${locals.name_prefix}-backend-profile"
+    Name = "${local.name_prefix}-backend-profile"
   }
 }
 
@@ -248,7 +248,7 @@ resource "aws_instance" "sample_backend" {
 
   ami                    = data.aws_ami.amazon_linux_2023[0].id
   instance_type          = var.sample_backend_instance_type
-  subnet_id              = locals.subnet_ids[count.index % length(locals.subnet_ids)]
+  subnet_id              = local.subnet_ids[count.index % length(local.subnet_ids)]
   vpc_security_group_ids = [aws_security_group.backend_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.backend_profile[0].name
 
@@ -324,7 +324,7 @@ resource "aws_instance" "sample_backend" {
               EOF
 
   tags = {
-    Name = "${locals.name_prefix}-backend-${count.index + 1}"
+    Name = "${local.name_prefix}-backend-${count.index + 1}"
     Role = "PrivateLinkBackend"
   }
 
@@ -348,10 +348,10 @@ resource "aws_lb_target_group_attachment" "sample_attachment" {
 # ==============================================================================
 
 resource "aws_lb" "nlb" {
-  name                             = substr("${locals.name_prefix}-nlb", 0, 32)
+  name                             = substr("${local.name_prefix}-nlb", 0, 32)
   internal                         = true
   load_balancer_type               = "network"
-  subnets                          = locals.subnet_ids
+  subnets                          = local.subnet_ids
   security_groups                  = [aws_security_group.nlb_sg.id]
   enable_cross_zone_load_balancing = var.enable_cross_zone_load_balancing
   enable_deletion_protection       = var.enable_deletion_protection
@@ -366,7 +366,7 @@ resource "aws_lb" "nlb" {
   }
 
   tags = {
-    Name = "${locals.name_prefix}-nlb"
+    Name = "${local.name_prefix}-nlb"
     Role = "PrivateLinkServiceLB"
   }
 }
@@ -376,10 +376,10 @@ resource "aws_lb" "nlb" {
 # ==============================================================================
 
 resource "aws_lb_target_group" "service_tg" {
-  name                 = substr("${locals.name_prefix}-tg", 0, 32)
+  name                 = substr("${local.name_prefix}-tg", 0, 32)
   port                 = var.service_port
   protocol             = var.target_protocol
-  vpc_id               = locals.vpc_id
+  vpc_id               = local.vpc_id
   target_type          = var.target_type
   deregistration_delay = var.deregistration_delay
   preserve_client_ip   = var.preserve_client_ip
@@ -389,14 +389,14 @@ resource "aws_lb_target_group" "service_tg" {
     enabled             = true
     protocol            = var.health_check_protocol
     port                = var.health_check_port
-    path                = locals.health_check_path
+    path                = local.health_check_path
     interval            = var.health_check_interval
     healthy_threshold   = var.health_check_healthy_threshold
     unhealthy_threshold = var.health_check_unhealthy_threshold
   }
 
   tags = {
-    Name = "${locals.name_prefix}-tg"
+    Name = "${local.name_prefix}-tg"
   }
 
   lifecycle {
@@ -419,7 +419,7 @@ resource "aws_lb_listener" "service_listener" {
   }
 
   tags = {
-    Name = "${locals.name_prefix}-listener-${var.service_port}"
+    Name = "${local.name_prefix}-listener-${var.service_port}"
   }
 }
 
@@ -433,7 +433,7 @@ resource "aws_vpc_endpoint_service" "endpoint_service" {
   private_dns_name           = var.private_dns_name
 
   tags = {
-    Name        = "${locals.name_prefix}-endpoint-service"
+    Name        = "${local.name_prefix}-endpoint-service"
     Environment = var.environment
   }
 }
@@ -466,11 +466,11 @@ resource "aws_vpc_endpoint_connection_notification" "service_notifications" {
 resource "aws_sns_topic" "endpoint_notifications" {
   count = var.enable_connection_notifications ? 1 : 0
 
-  name              = "${locals.name_prefix}-vpce-notifications"
+  name              = "${local.name_prefix}-vpce-notifications"
   kms_master_key_id = "alias/aws/sns"
 
   tags = {
-    Name = "${locals.name_prefix}-vpce-notifications"
+    Name = "${local.name_prefix}-vpce-notifications"
   }
 }
 
@@ -527,7 +527,7 @@ resource "aws_sns_topic_subscription" "email_subscribers" {
 resource "aws_cloudwatch_metric_alarm" "unhealthy_hosts" {
   count = var.enable_cloudwatch_alarms ? 1 : 0
 
-  alarm_name          = "${locals.name_prefix}-nlb-unhealthy-hosts"
+  alarm_name          = "${local.name_prefix}-nlb-unhealthy-hosts"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 2
   metric_name         = "UnHealthyHostCount"
@@ -547,14 +547,14 @@ resource "aws_cloudwatch_metric_alarm" "unhealthy_hosts" {
   ok_actions    = var.enable_connection_notifications ? [aws_sns_topic.endpoint_notifications[0].arn] : []
 
   tags = {
-    Name = "${locals.name_prefix}-alarm-unhealthy-hosts"
+    Name = "${local.name_prefix}-alarm-unhealthy-hosts"
   }
 }
 
 resource "aws_cloudwatch_metric_alarm" "tcp_target_resets" {
   count = var.enable_cloudwatch_alarms ? 1 : 0
 
-  alarm_name          = "${locals.name_prefix}-nlb-tcp-target-resets"
+  alarm_name          = "${local.name_prefix}-nlb-tcp-target-resets"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "TCP_Target_Reset_Count"
@@ -572,14 +572,14 @@ resource "aws_cloudwatch_metric_alarm" "tcp_target_resets" {
   alarm_actions = var.enable_connection_notifications ? [aws_sns_topic.endpoint_notifications[0].arn] : []
 
   tags = {
-    Name = "${locals.name_prefix}-alarm-target-resets"
+    Name = "${local.name_prefix}-alarm-target-resets"
   }
 }
 
 resource "aws_cloudwatch_metric_alarm" "tcp_elb_resets" {
   count = var.enable_cloudwatch_alarms ? 1 : 0
 
-  alarm_name          = "${locals.name_prefix}-nlb-tcp-elb-resets"
+  alarm_name          = "${local.name_prefix}-nlb-tcp-elb-resets"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "TCP_ELB_Reset_Count"
@@ -597,7 +597,7 @@ resource "aws_cloudwatch_metric_alarm" "tcp_elb_resets" {
   alarm_actions = var.enable_connection_notifications ? [aws_sns_topic.endpoint_notifications[0].arn] : []
 
   tags = {
-    Name = "${locals.name_prefix}-alarm-elb-resets"
+    Name = "${local.name_prefix}-alarm-elb-resets"
   }
 }
 

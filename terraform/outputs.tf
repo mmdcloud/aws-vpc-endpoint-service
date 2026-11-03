@@ -62,12 +62,12 @@ output "target_group_arn" {
 
 output "vpc_id" {
   description = "The ID of the VPC housing the service."
-  value       = locals.vpc_id
+  value       = local.vpc_id
 }
 
 output "subnet_ids" {
   description = "The IDs of the subnets hosting the NLB and backend."
-  value       = locals.subnet_ids
+  value       = local.subnet_ids
 }
 
 output "sns_topic_arn" {
