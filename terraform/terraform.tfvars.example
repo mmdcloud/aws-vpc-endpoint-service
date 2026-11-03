@@ -1,0 +1,76 @@
+# ==============================================================================
+# AWS VPC Endpoint Service - Example Terraform Variables
+# Copy to terraform.tfvars or <environment>.tfvars and customize
+# ==============================================================================
+
+aws_region   = "us-east-1"
+environment  = "prod"
+project_name = "payment-gateway-service"
+
+# --- Network Deployment Options ---
+# Option A: Create a dedicated VPC across 3 Availability Zones
+create_vpc = true
+vpc_cidr   = "10.100.0.0/16"
+
+# Option B: Attach to an existing VPC (uncomment to use)
+# create_vpc          = false
+# existing_vpc_id     = "vpc-0123456789abcdef0"
+# existing_subnet_ids = ["subnet-0123456789abcdef0", "subnet-0abcdef1234567890", "subnet-0987654321fedcba0"]
+
+# --- Service Port & Protocol ---
+service_port                     = 443
+target_protocol                  = "TCP"
+target_type                      = "instance" # instance, ip, alb
+enable_cross_zone_load_balancing = true
+enable_deletion_protection       = true
+deregistration_delay             = 30
+enable_proxy_protocol_v2         = false
+preserve_client_ip               = false
+
+# --- Health Check ---
+health_check_protocol          = "TCP"
+health_check_port              = "traffic-port"
+health_check_interval          = 10
+health_check_healthy_threshold = 3
+health_check_unhealthy_threshold = 3
+
+# --- PrivateLink Endpoint Service Settings ---
+acceptance_required = true
+
+# Whitelist allowed consumer AWS accounts or IAM principals
+allowed_principals = [
+  # "arn:aws:iam::111122223333:root",      # Consumer AWS Account A
+  # "arn:aws:iam::444455556666:root",      # Consumer AWS Account B
+  # "arn:aws:iam::111122223333:role/AppRole"
+]
+
+supported_ip_address_types = ["ipv4"]
+
+# Optional: Private DNS Name (requires Route53 domain verification)
+# private_dns_name = "api.internal.company.com"
+
+# --- Observability & Notifications ---
+enable_connection_notifications = true
+notification_email_endpoints    = [
+  # "cloud-infra-alerts@company.com"
+]
+enable_cloudwatch_alarms        = true
+
+# Optional: NLB Access Logs
+enable_access_logs    = false
+# access_logs_s3_bucket = "my-company-prod-nlb-access-logs"
+# access_logs_s3_prefix = "payment-gateway-nlb"
+
+# --- Sample Backend (for immediate turnkey validation) ---
+# Set to false if you are attaching existing EC2 instances or IP targets
+enable_sample_backend         = true
+sample_backend_instance_count = 2
+sample_backend_instance_type  = "t3.micro"
+
+# --- Tags ---
+tags = {
+  Owner       = "PlatformEngineering"
+  CostCenter  = "CoreInfrastructure"
+  Compliance  = "PCI-DSS"
+}
+
